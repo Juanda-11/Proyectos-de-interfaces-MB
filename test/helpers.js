@@ -24,3 +24,21 @@ function mockRes() {
 }
 
 module.exports = { mockReq, mockRes };
+
+// Llama a la API completa (router + handlers) sin servidor HTTP.
+// Uso: const { status, json } = await call('POST', '/auth/login', { body, token });
+async function call(method, path, { body, token, headers = {} } = {}) {
+  require('../lib/routes');
+  const { handleRequest } = require('../lib/app');
+  const req = mockReq({
+    method,
+    url: `/api${path}`,
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
+    body,
+  });
+  const res = mockRes();
+  await handleRequest(req, res);
+  return { status: res.statusCode, json: res.json(), headers: res.headers };
+}
+
+module.exports.call = call;
