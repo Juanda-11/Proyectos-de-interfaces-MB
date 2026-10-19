@@ -1,6 +1,6 @@
 # Referencia de la API
 
-Base: `https://TU-BACKEND.vercel.app/api`. Todas las respuestas son JSON. Los errores tienen la forma
+Base: `https://backend-foodlink.vercel.app/api` (en local: `http://localhost:3000/api`). Todas las respuestas son JSON. Los errores tienen la forma
 `{ "error": "codigo", "details": { ... } }`.
 
 La autenticación usa `Authorization: Bearer <token>` (el token se obtiene en `/auth/register` o `/auth/login`

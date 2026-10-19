@@ -50,9 +50,9 @@ Sin credenciales de Upstash usa memoria (los datos se pierden al reiniciar).
 El código de entrega de cada donación solo lo ve el donante: para completar una entrega como receptor,
 ábrela con la cuenta de donante y muestra el código (o escanea el QR).
 
-## Despliegue
-Ver [`docs/DEPLOY.md`](docs/DEPLOY.md): importar el repo en Vercel, conectar **Upstash Redis**, agregar
-`GEMINI_API_KEY` y volver a desplegar. Luego `GET /api/health` debe mostrar `"storage": "upstash"`.
+## Producción
+La API está desplegada en Vercel (una función serverless) con Upstash Redis como base de datos:
+<https://backend-foodlink.vercel.app/api/health>
 
 ## Decisiones de diseño
 - **Una sola función serverless** que enruta internamente: evita el límite de funciones del plan gratuito y
