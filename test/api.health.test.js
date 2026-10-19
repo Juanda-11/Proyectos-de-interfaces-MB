@@ -33,3 +33,19 @@ test('routePath entiende ?route= (Vercel) y la URL directa (local)', () => {
   assert.equal(routePath({ url: '/api/health' }), '/health');
   assert.equal(routePath({ url: '/api/router', query: { route: ['a', 'b'] } }), '/a/b');
 });
+
+test('en producción con memoria: /health avisa y el resto responde 503', async () => {
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.KV_REST_API_URL;
+  process.env.VERCEL_ENV = 'production';
+  try {
+    const health = await call('GET', '/health');
+    assert.equal(health.json.ok, false);
+    assert.match(health.json.warning, /Upstash/);
+    const login = await call('POST', '/auth/login', { body: { email: 'a@b.co', password: 'secreto1' } });
+    assert.equal(login.status, 503);
+    assert.equal(login.json.error, 'storage_not_configured');
+  } finally {
+    delete process.env.VERCEL_ENV;
+  }
+});
