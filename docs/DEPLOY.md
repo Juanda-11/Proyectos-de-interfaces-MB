@@ -32,7 +32,9 @@ Debe mostrar `"storage": "upstash"` y `"ai": { "configured": true, "provider": "
 En el proyecto de Vercel del **frontend** define `EXPO_PUBLIC_API_URL=https://TU-BACKEND.vercel.app`
 y vuelve a desplegar (la variable se incorpora al compilar).
 
-Opcional: en este backend define `ALLOWED_ORIGINS=https://TU-FRONTEND.vercel.app` para limitar CORS.
+Opcional: `ALLOWED_ORIGINS` limita qué sitios pueden llamar a la API (por defecto cualquiera, `*`).
+Lista separada por comas; se ignora la barra final y admite `*` como comodín. Como Vercel crea una URL distinta por
+despliegue, lo más cómodo es un patrón: `ALLOWED_ORIGINS=https://foodlink-*.vercel.app`.
 
 ## Solución de problemas
 | Síntoma | Causa probable |
@@ -40,4 +42,5 @@ Opcional: en este backend define `ALLOWED_ORIGINS=https://TU-FRONTEND.vercel.app
 | `/api/health` muestra `"storage": "memory"` | Falta conectar Upstash o hacer Redeploy |
 | El login funciona y luego "se pierde" la sesión | Mismo caso: sin Redis cada instancia tiene datos distintos |
 | `ai.configured: false` | Falta `GEMINI_API_KEY`/`ANTHROPIC_API_KEY` o Redeploy |
+| En la consola: "blocked by CORS policy ... Access-Control-Allow-Origin" | `ALLOWED_ORIGINS` no coincide con la URL desde la que abres el frontend (otra URL de despliegue, o falta el comodín). Bórrala o usa un patrón |
 | Análisis con `502 upstream_error` | Mira `details` en la respuesta: clave inválida o sin cuota |
