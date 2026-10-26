@@ -6,6 +6,7 @@ const ai = require('../lib/ai');
 
 const OK = '{"isFood":true,"name":"Pan","category":"bakery","quantityText":"12","weightKg":2,"freshness":"good","shelfLifeDays":1}';
 const clean = () => {
+  ai.resetCooldowns();
   for (const k of ['GEMINI_API_KEY', 'ANTHROPIC_API_KEY', 'AI_PROVIDER', 'GEMINI_MODEL', 'ANTHROPIC_MODEL']) delete process.env[k];
 };
 const image = 'data:image/jpeg;base64,' + 'x'.repeat(200);
@@ -89,23 +90,23 @@ test('errores del proveedor se informan como 502 con detalle', async () => {
 });
 
 test('Gemini: ante 503 (saturado) o 429 sigue con el siguiente modelo', async () => {
-  clean();
-  process.env.GEMINI_API_KEY = 'g';
-  const statuses = { 'gemini-3.8-flash': 503, 'gemini-flash-latest': 429 };
-  const f = mockFetch((url) => {
-    const model = Object.keys(statuses).find((m) => url.includes(m));
-    return model ? { ok: false, status: statuses[model], text: 'busy' } : { json: { candidates: [{ content: { parts: [{ text: OK }] } }] } };
-  });
-  const orig = console.error;
-  console.error = () => {};
-  try {
-    assert.equal((await ai.analyzeImage({ image, mediaType: 'image/jpeg', lang: 'es' })).name, 'Pan');
-    assert.equal(f.calls.length, 3);
-    assert.ok(f.calls[2].url.includes('gemini-2.5-flash'));
-  } finally {
-    console.error = orig;
-    f.restore();
+  for (const status of [503, 429]) {
     clean();
+    process.env.GEMINI_API_KEY = 'g';
+    const f = mockFetch((url) =>
+      url.includes('gemini-3.8-flash') ? { ok: false, status, text: 'busy' } : { json: { candidates: [{ content: { parts: [{ text: OK }] } }] } }
+    );
+    const orig = console.error;
+    console.error = () => {};
+    try {
+      assert.equal((await ai.analyzeImage({ image, mediaType: 'image/jpeg', lang: 'es' })).name, 'Pan');
+      assert.equal(f.calls.length, 2);
+      assert.ok(f.calls[1].url.includes('gemini-flash-latest'));
+    } finally {
+      console.error = orig;
+      f.restore();
+      clean();
+    }
   }
 });
 
@@ -141,9 +142,50 @@ test('si todos los modelos fallan se informa el último error', async () => {
       () => ai.analyzeImage({ image, mediaType: 'image/jpeg', lang: 'es' }),
       (e) => e.status === 502 && e.details.upstreamStatus === 503 && /high demand/.test(e.details.detail)
     );
-    assert.equal(f.calls.length, 3);
+    assert.equal(f.calls.length, 2);
   } finally {
     console.error = orig;
+    f.restore();
+    clean();
+  }
+});
+
+test('el modelo que falló descansa y no se vuelve a llamar enseguida', async () => {
+  clean();
+  process.env.GEMINI_API_KEY = 'g';
+  const f = mockFetch((url) =>
+    url.includes('gemini-3.8-flash') ? { ok: false, status: 429, text: 'quota' } : { json: { candidates: [{ content: { parts: [{ text: OK }] } }] } }
+  );
+  const orig = console.error;
+  console.error = () => {};
+  try {
+    await ai.analyzeImage({ image, mediaType: 'image/jpeg', lang: 'es' }); // 3.8 (429) + latest
+    f.calls.length = 0;
+    await ai.analyzeImage({ image, mediaType: 'image/jpeg', lang: 'es' });
+    assert.equal(f.calls.length, 1);
+    assert.ok(f.calls[0].url.includes('gemini-flash-latest'));
+  } finally {
+    console.error = orig;
+    f.restore();
+    clean();
+  }
+});
+
+test('Gemini pide razonamiento mínimo y reintenta sin él si el modelo no lo admite (400)', async () => {
+  clean();
+  process.env.GEMINI_API_KEY = 'g';
+  const f = mockFetch((url, body) =>
+    body.generationConfig.thinkingConfig
+      ? { ok: false, status: 400, text: 'Unknown name "thinkingLevel": thinking is not supported by this model' }
+      : { json: { candidates: [{ content: { parts: [{ text: OK }] } }] } }
+  );
+  try {
+    assert.equal((await ai.analyzeImage({ image, mediaType: 'image/jpeg', lang: 'es' })).name, 'Pan');
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[0].body.generationConfig.thinkingConfig.thinkingLevel, 'low');
+    assert.equal(f.calls[1].body.generationConfig.thinkingConfig, undefined);
+    assert.ok(f.calls[1].url.includes('gemini-3.8-flash')); // mismo modelo, sin el parámetro
+  } finally {
     f.restore();
     clean();
   }
