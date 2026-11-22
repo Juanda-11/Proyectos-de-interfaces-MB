@@ -6,6 +6,7 @@ const ai = require('../lib/ai');
 
 const OK = '{"isFood":true,"name":"Pan","category":"bakery","quantityText":"12","weightKg":2,"freshness":"good","shelfLifeDays":1}';
 const clean = () => {
+  process.env.GEMINI_MODEL_DISCOVERY = 'off';
   ai.resetCooldowns();
   for (const k of ['GEMINI_API_KEY', 'ANTHROPIC_API_KEY', 'AI_PROVIDER', 'GEMINI_MODEL', 'ANTHROPIC_MODEL']) delete process.env[k];
 };
